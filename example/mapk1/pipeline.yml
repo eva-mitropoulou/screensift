@@ -95,7 +95,13 @@ gnina:
 redocking:
   native:
     # Uni-Dock native-ligand redocking validation.
+    # In full_screening mode this runs before the many-ligand docking stage.
     run: true  # options: true, false
+
+    # true means: only receptors that pass the RMSD threshold are used for
+    # many-ligand Uni-Dock screening. Set false to keep all complete receptors.
+    filter_receptors: false  # options: true, false; true gates the screen on the RMSD threshold once configs are validated
+
     rmsd_threshold_angstrom: 2.0
   gnina_score_sanity:
     # GNINA score-only sanity check.

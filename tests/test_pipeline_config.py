@@ -4,7 +4,15 @@ import yaml
 
 import pandas as pd
 
-from screensift.pipeline import output_paths, prepare_score_population, run_pipeline
+from screensift.pipeline import (
+    docking_boxes_for_screening,
+    output_paths,
+    prepare_score_population,
+    redocking_gate_enabled,
+    run_pipeline,
+    selected_stages,
+    write_redocking_filtered_boxes,
+)
 
 
 def test_pipeline_dry_run_writes_manifest(tmp_path: Path) -> None:
@@ -68,6 +76,42 @@ def test_empty_score_table_uses_generated_gnina_scores(tmp_path: Path) -> None:
     assert paths["score_population"] == paths["gnina_scores"]
 
 
+def test_full_screening_redocking_runs_before_docking_inputs() -> None:
+    stages = selected_stages(
+        {
+            "workflow": {"mode": "full_screening"},
+            "candidate_pose_qc": {"run": False},
+            "redocking": {"native": {"run": True}, "gnina_score_sanity": {"run": False}},
+        }
+    )
+
+    assert stages.index("native_redocking") < stages.index("ligand_3d")
+    assert stages.index("native_redocking") < stages.index("docking_inputs")
+    assert stages.index("native_redocking") < stages.index("unidock_screen")
+
+
+def test_redocking_filter_keeps_only_passing_receptors(tmp_path: Path) -> None:
+    boxes = tmp_path / "boxes.csv"
+    out = tmp_path / "passed_boxes.csv"
+    pd.DataFrame(
+        [
+            {"pdb_id": "PASS", "status": "complete", "receptor_pdbqt": "pass.pdbqt"},
+            {"pdb_id": "FAIL", "status": "complete", "receptor_pdbqt": "fail.pdbqt"},
+        ]
+    ).to_csv(boxes, index=False)
+    redocking = pd.DataFrame(
+        [
+            {"pdb_id": "PASS", "redocking_success": True},
+            {"pdb_id": "FAIL", "redocking_success": False},
+        ]
+    )
+
+    filtered = write_redocking_filtered_boxes(boxes, redocking, out)
+
+    assert filtered["pdb_id"].tolist() == ["PASS"]
+    assert pd.read_csv(out)["pdb_id"].tolist() == ["PASS"]
+
+
 def test_prepare_score_population_enriches_gnina_scores(tmp_path: Path) -> None:
     config = {
         "target": "TOY",
@@ -121,3 +165,30 @@ def test_prepare_score_population_enriches_gnina_scores(tmp_path: Path) -> None:
     assert enriched.loc[0, "gnina_cnnscore"] == 0.8
     assert enriched.loc[0, "gnina_affinity"] == -8.2
     assert enriched.loc[0, "output_pose_file"] == "pose.pdbqt"
+
+
+def test_redocking_gate_is_off_by_default() -> None:
+    # Report-only by default: redocking runs early but must NOT drop receptors
+    # until the user validates the docking config against a known pose.
+    assert redocking_gate_enabled({}) is False
+    assert redocking_gate_enabled({"redocking": {"native": {}}}) is False
+    assert redocking_gate_enabled({"redocking": {"native": {"filter_receptors": True}}}) is True
+
+
+def test_enabled_gate_without_filtered_boxes_fails_loudly(tmp_path: Path) -> None:
+    # With the gate on but the native_redocking stage not yet run (no filtered
+    # boxes on disk), screening must error rather than silently use all receptors.
+    import pytest
+
+    config = {"redocking": {"native": {"filter_receptors": True}}, "docking": {"boxes": str(tmp_path / "boxes.csv")}}
+    paths = {"redocking_filtered_boxes": tmp_path / "missing_passed_boxes.csv"}
+    with pytest.raises(FileNotFoundError):
+        docking_boxes_for_screening(config, paths)
+
+
+def test_disabled_gate_uses_configured_boxes(tmp_path: Path) -> None:
+    boxes = tmp_path / "boxes.csv"
+    boxes.write_text("pdb_id\n", encoding="utf-8")
+    config = {"docking": {"boxes": str(boxes)}}  # filter_receptors unset -> off
+    paths = {"redocking_filtered_boxes": tmp_path / "passed_boxes.csv"}  # does not exist
+    assert docking_boxes_for_screening(config, paths) == boxes

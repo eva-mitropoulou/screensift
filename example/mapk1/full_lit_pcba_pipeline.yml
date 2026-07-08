@@ -3,9 +3,10 @@
 # This is the config to review before starting the expensive run.
 # It is intentionally set up for the full workflow:
 #   full LIT-PCBA MAPK1 ligands
+#   -> Uni-Dock native redocking validation
+#   -> keep only receptors that pass the redocking RMSD gate
 #   -> ligand 3D/PDBQT preparation
 #   -> Uni-Dock screening
-#   -> Uni-Dock native redocking validation
 #   -> GNINA Docker GPU score-only rescoring
 #   -> GNINA score sanity validation
 #   -> optional candidate pose QC with GNINA
@@ -90,11 +91,15 @@ gnina:
 
 redocking:
   native:
-    # Validate the Uni-Dock receptor/box setup with crystallographic ligands.
-    # Current receptor folders contain native_ligand.pdb. The redocking code
-    # expects native_ligand.pdbqt beside it; missing files are reported as
-    # validation failures rather than silently ignored.
+    # Validate the Uni-Dock receptor/box setup with crystallographic ligands
+    # before the expensive many-ligand docking stage.
     run: true  # options: true, false
+
+    # true means: write a filtered docking-box table containing only receptors
+    # that pass rmsd_threshold_angstrom, then screen ligands only against those
+    # receptors. Set false to report redocking but keep all receptors.
+    filter_receptors: false  # options: true, false; true gates the screen on the RMSD threshold once configs are validated
+
     rmsd_threshold_angstrom: 2.0
 
   gnina_score_sanity:

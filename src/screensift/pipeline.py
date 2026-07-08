@@ -27,13 +27,13 @@ from screensift.validation.validate_gnina_rescoring import validate_gnina_rescor
 STAGES = [
     "adapt_dataset",
     "split_dataset",
+    "native_redocking",
     "ligand_3d",
     "ligand_pdbqt",
     "docking_inputs",
     "unidock_screen",
     "parse_unidock",
     "unidock_qc",
-    "native_redocking",
     "gnina_input",
     "gnina_rescore",
     "parse_gnina",
@@ -91,6 +91,7 @@ def output_paths(config: dict[str, Any]) -> dict[str, Path]:
         "unidock_qc_report": reports / f"{slug}_{run_id}_unidock_score_qc.md",
         "native_redocking": tables / f"{slug}_{run_id}_native_redocking.csv",
         "native_redocking_report": reports / f"{slug}_{run_id}_native_redocking_report.md",
+        "redocking_filtered_boxes": tables / f"{slug}_{run_id}_redocking_passed_boxes.csv",
         "gnina_input": tables / f"{slug}_{run_id}_gnina_input.csv",
         "gnina_raw": tables / f"{slug}_{run_id}_gnina_raw.csv",
         "gnina_scores": tables / f"{slug}_{run_id}_gnina_scores.csv",
@@ -211,6 +212,53 @@ def prepare_score_population(paths: dict[str, Path]) -> Path:
     return paths["score_population_enriched"]
 
 
+def redocking_gate_enabled(config: dict[str, Any]) -> bool:
+    # Off by default: native redocking runs early and REPORTS, but does not
+    # drop receptors until the user has validated the docking config against a
+    # known pose. Set redocking.native.filter_receptors: true to gate the
+    # many-ligand screen on the RMSD threshold once the setup is trusted.
+    return bool(get_nested(config, "redocking", "native", "filter_receptors", default=False))
+
+
+def docking_boxes_for_screening(config: dict[str, Any], paths: dict[str, Path]) -> Path:
+    if redocking_gate_enabled(config):
+        filtered = paths["redocking_filtered_boxes"]
+        if not filtered.exists():
+            # The gate is on but no filtered-boxes table was written. Rather
+            # than silently screen every receptor (defeating the gate), fail
+            # loudly: the native_redocking stage must run before this one.
+            raise FileNotFoundError(
+                "redocking.native.filter_receptors is enabled but "
+                f"{filtered} was not written. Run the native_redocking stage "
+                "before docking_inputs, or set filter_receptors: false."
+            )
+        return filtered
+    return Path(get_nested(config, "docking", "boxes"))
+
+
+def write_redocking_filtered_boxes(
+    boxes_path: str | Path,
+    redocking: pd.DataFrame,
+    out_path: str | Path,
+    require_pass: bool = True,
+) -> pd.DataFrame:
+    boxes = pd.read_csv(boxes_path)
+    if "pdb_id" not in boxes.columns:
+        raise ValueError("Docking boxes table must contain a pdb_id column.")
+    if redocking.empty or "pdb_id" not in redocking.columns or "redocking_success" not in redocking.columns:
+        passed_ids: set[str] = set()
+    else:
+        passed = redocking[redocking["redocking_success"].astype(str).str.lower().isin({"true", "1", "yes"})]
+        passed_ids = set(passed["pdb_id"].astype(str).str.upper())
+    filtered = boxes[boxes["pdb_id"].astype(str).str.upper().isin(passed_ids)].copy()
+    if require_pass and filtered.empty:
+        raise ValueError("Native redocking gate removed all receptors; no receptor passed the configured RMSD threshold.")
+    out = Path(out_path)
+    ensure_dir(out.parent)
+    filtered.to_csv(out, index=False)
+    return filtered
+
+
 def run_pipeline(config_path: str | Path, dry_run: bool = False, force: bool = False) -> dict[str, Any]:
     config = load_yaml(config_path)
     paths = output_paths(config)
@@ -252,7 +300,7 @@ def _run_stage(stage: str, config: dict[str, Any], paths: dict[str, Path], force
     elif stage == "ligand_pdbqt":
         prepare_pdbqt_ligands(paths["sdf_dir"], paths["pdbqt_dir"], paths["pdbqt_manifest"], paths["pdbqt_failures"], n_jobs=int(get_nested(config, "ligands", "n_jobs", default=1)), force=force)
     elif stage == "docking_inputs":
-        collect_docking_inputs(paths["pdbqt_dir"], get_nested(config, "docking", "boxes"), paths["docking_inputs"], limit=get_nested(config, "limits", "ligands", default=None), single_receptor=bool(get_nested(config, "limits", "single_receptor", default=False)), output_root=paths["poses"] / "unidock")
+        collect_docking_inputs(paths["pdbqt_dir"], docking_boxes_for_screening(config, paths), paths["docking_inputs"], limit=get_nested(config, "limits", "ligands", default=None), single_receptor=bool(get_nested(config, "limits", "single_receptor", default=False)), output_root=paths["poses"] / "unidock")
     elif stage == "unidock_screen":
         run_unidock_inputs(paths["docking_inputs"], paths["poses"] / "unidock", paths["unidock_raw"], unidock_bin=get_nested(config, "docking", "unidock_bin", default="unidock"), exhaustiveness=int(get_nested(config, "docking", "exhaustiveness", default=8)), max_step=int(get_nested(config, "docking", "max_step", default=10)), num_modes=int(get_nested(config, "docking", "num_modes", default=10)), energy_range=float(get_nested(config, "docking", "energy_range", default=3)), cpu=int(get_nested(config, "docking", "cpu", default=1)), log_dir=paths["logs"] / "unidock")
     elif stage == "parse_unidock":
@@ -260,7 +308,9 @@ def _run_stage(stage: str, config: dict[str, Any], paths: dict[str, Path], force
     elif stage == "unidock_qc":
         audit_unidock_scores(paths["unidock_scores"], paths["split"], paths["unidock_clean"], paths["unidock_flags"], paths["unidock_best"], paths["unidock_qc_report"])
     elif stage == "native_redocking":
-        redock_native_ligands(get_nested(config, "docking", "boxes"), paths["native_redocking"], paths["native_redocking_report"], paths["poses"] / "native_redocking", paths["logs"] / "native_redocking", unidock_bin=get_nested(config, "docking", "unidock_bin", default="unidock"), rmsd_threshold_angstrom=float(get_nested(config, "redocking", "native", "rmsd_threshold_angstrom", default=2.0)), cpu=int(get_nested(config, "docking", "cpu", default=1)), exhaustiveness=int(get_nested(config, "docking", "exhaustiveness", default=8)), num_modes=int(get_nested(config, "docking", "num_modes", default=10)), energy_range=float(get_nested(config, "docking", "energy_range", default=3)))
+        redocking = redock_native_ligands(get_nested(config, "docking", "boxes"), paths["native_redocking"], paths["native_redocking_report"], paths["poses"] / "native_redocking", paths["logs"] / "native_redocking", unidock_bin=get_nested(config, "docking", "unidock_bin", default="unidock"), rmsd_threshold_angstrom=float(get_nested(config, "redocking", "native", "rmsd_threshold_angstrom", default=2.0)), cpu=int(get_nested(config, "docking", "cpu", default=1)), exhaustiveness=int(get_nested(config, "docking", "exhaustiveness", default=8)), num_modes=int(get_nested(config, "docking", "num_modes", default=10)), energy_range=float(get_nested(config, "docking", "energy_range", default=3)))
+        if redocking_gate_enabled(config):
+            write_redocking_filtered_boxes(get_nested(config, "docking", "boxes"), redocking, paths["redocking_filtered_boxes"], require_pass=True)
     elif stage == "gnina_input":
         build_gnina_all_valid_input(paths["unidock_best"], paths["gnina_input"], paths["reports"] / "gnina_input_report.md", receptor_root=get_nested(config, "paths", "receptor_root"), gnina_output_root=paths["poses"] / "gnina")
     elif stage == "gnina_rescore":
