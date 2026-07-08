@@ -1,0 +1,20 @@
+receptors:
+  EXAMPLE_TARGET:
+    target_id: EXAMPLE_TARGET
+    target_name: Example target
+    source: RCSB_PDB
+    uniprot_accession: null
+    aliases: []
+    max_receptors: 10
+    preferred_receptor_count: 5
+    selection_criteria:
+      organism: null
+      prefer_holo: true
+      prefer_xray_or_cryoem: true
+      avoid_covalent_ligands_initially: true
+      avoid_missing_pocket_residues: true
+      max_resolution_angstrom: 3.0
+    manual_pdb_ids: []
+    docking_box:
+      box_padding_angstrom: 6.0
+      min_box_size_angstrom: 18.0

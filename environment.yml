@@ -1,0 +1,39 @@
+name: screensift
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - rdkit
+  - openbabel
+  - biopython
+  - pandas
+  - numpy
+  - scipy
+  - scikit-learn
+  - matplotlib
+  - jupyterlab
+  - snakemake
+  - pytest
+  - pytest-cov
+  - pyyaml
+  - tqdm
+  - joblib
+  - requests
+  - py3dmol
+  - mols2grid
+  - spyrmsd
+  - prolif
+  - pdbfixer
+  - pdb2pqr
+  - propka
+  - mdanalysis
+  - prody
+  - dimorphite-dl
+  - pip
+  - pip:
+      - meeko
+      - vina
+      - posebusters
+      - datamol
+      - molfeat

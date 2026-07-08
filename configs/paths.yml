@@ -1,0 +1,9 @@
+raw_lit_pcba_dir: data/raw/lit_pcba
+raw_pdb_dir: data/raw/pdb
+processed_ligand_dir: data/processed/ligands
+processed_receptor_dir: data/processed/receptors
+split_dir: data/processed/splits
+results_table_dir: results/tables
+results_figure_dir: results/figures
+results_pose_dir: results/poses
+results_report_dir: results/reports

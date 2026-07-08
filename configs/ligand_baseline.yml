@@ -1,0 +1,33 @@
+fingerprint:
+  type: ECFP4
+  radius: 2
+  n_bits: 2048
+  use_chirality: false
+
+similarity_baselines:
+  - name: ecfp4_active_similarity_leave_one_out
+    reference_set: active
+    active_self_match: exclude
+
+top_fractions: [0.01, 0.05, 0.10]
+top_ks: [50, 100, 250]
+bootstrap_iterations: 1000
+random_seed: 42
+
+novelty_thresholds:
+  low_similarity: 0.30
+  medium_similarity: 0.50
+  high_similarity: 0.70
+
+clean_population_exclusion_flags:
+  - extreme_unidock_negative
+  - suspicious_unidock_extreme_negative
+  - suspicious_ligand_efficiency_extreme
+  - extreme_positive_gnina_affinity
+  - out_of_range_cnnscore
+  - suspicious_cnnaffinity_extreme
+
+notes:
+  - "Do not exclude all positive GNINA affinity values by default."
+  - "The canonical analysis keeps all 5233 valid ligands."
+  - "Clean-population analysis is sensitivity analysis only."

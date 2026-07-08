@@ -1,0 +1,39 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.snakemake/
+.ipynb_checkpoints/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+.env
+.venv/
+env/
+venv/
+
+# macOS metadata
+.DS_Store
+._*
+
+# Large / regenerable pipeline artifacts (kept out of the repo).
+# Users regenerate these by running the pipeline; the receptors and the
+# example inputs/outputs that ARE committed live under example/mapk1/.
+runs/
+logs/
+data/raw/
+data/processed/ligands/
+results/
+
+# Keep the small prepared receptors so the docking stages are runnable
+# on the shipped example (2.7 MB), but not the large ligand set.
+!data/
+!data/processed/
+!data/processed/receptors/
+!data/processed/receptors/**
+
+# Keep the committed example inputs AND reference outputs.
+!example/
+!example/**

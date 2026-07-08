@@ -1,0 +1,83 @@
+fingerprint:
+  type: ECFP4
+  radius: 2
+  n_bits: 2048
+  use_chirality: false
+
+populations:
+  run_full: true
+  run_clean: true
+
+few_active_baseline:
+  k_values: [1, 5, 10, 25]
+  n_repeats: 100
+  random_seed: 42
+  remove_reference_actives_from_evaluation: true
+  min_test_actives_required: 10
+
+native_ligand_baseline:
+  enabled: true
+  native_ligand_table: results/tables/example_target_native_ligands.csv
+  native_ligand_sdf_glob: data/processed/receptors/EXAMPLE_TARGET/*/*_native_ligand.sdf
+  native_ligand_pdb_glob: data/processed/receptors/EXAMPLE_TARGET/*/native_ligand.pdb
+  use_max_similarity_to_native_ligands: true
+
+scaffold_holdout_baseline:
+  enabled: true
+  n_repeats: 100
+  random_seed: 42
+  reference_scaffold_fraction: 0.30
+  min_reference_active_scaffolds: 5
+  min_test_active_scaffolds: 5
+  min_test_actives_required: 10
+
+near_analog_removed:
+  thresholds: [0.70, 0.50, 0.30]
+  min_actives_required: 10
+  apply_to:
+    - all_active_loo_ecfp4
+    - native_ligand_ecfp4
+    - few_active_ecfp4
+    - scaffold_holdout_ecfp4
+
+negative_controls:
+  label_shuffle:
+    enabled: true
+    n_repeats: 100
+    random_seed: 123
+  inactive_reference:
+    enabled: true
+    k_values: [1, 5, 10, 25]
+    n_repeats: 50
+    random_seed: 321
+
+structure_methods:
+  unidock_best:
+    score_column_candidates: ["unidock_best_score", "best_score", "unidock_score"]
+    direction: lower
+  gnina_cnnscore:
+    score_column_candidates: ["CNNscore", "cnnscore", "gnina_cnnscore"]
+    direction: higher
+  gnina_cnnaffinity:
+    score_column_candidates: ["CNNaffinity", "cnnaffinity", "gnina_cnnaffinity"]
+    direction: higher
+  gnina_affinity:
+    score_column_candidates: ["gnina_affinity", "affinity", "GNINA_affinity"]
+    direction: lower
+
+metrics:
+  top_fractions: [0.01, 0.05, 0.10]
+  top_ks: [50, 100, 250]
+  bootstrap_iterations: 1000
+  bootstrap_confidence: 0.95
+  random_seed: 42
+
+structure_added_value:
+  enabled: true
+  top_k_values: [50, 100, 250]
+  novelty_thresholds: [0.70, 0.50, 0.30]
+
+outputs:
+  tables_dir: results/tables
+  figures_dir: results/figures
+  reports_dir: results/reports

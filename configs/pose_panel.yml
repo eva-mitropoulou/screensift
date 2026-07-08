@@ -1,0 +1,58 @@
+pose_panel:
+  include_tiers:
+    - A_analog_seed
+
+  include_controls:
+    false_positive_cases: 2
+    false_negative_cases: 2
+    score_anomaly_cases: 2
+
+  output_dir: results/figures/pose_review_panels
+  pml_dir: results/figures/pose_review_panels/pml
+  png_dir: results/figures/pose_review_panels/png
+
+  image:
+    width: 2400
+    height: 1800
+    dpi: 300
+    ray: true
+    background: white
+    opaque_background: true
+
+  views:
+    full_receptor:
+      show_surface: false
+      pocket_cutoff_angstrom: 4.0
+
+    pocket_overview:
+      ligand_zoom_buffer: 12
+      receptor_surface_transparency: 0.80
+      pocket_cutoff_angstrom: 4.0
+      show_surface: true
+
+    interactions:
+      ligand_zoom_buffer: 8
+      pocket_cutoff_angstrom: 4.0
+      polar_contact_cutoff_angstrom: 3.5
+      show_surface: false
+      label_pocket_residues: true
+      hide_pocket_cartoon: true
+
+  styling:
+    receptor_color: gray80
+    ligand_color: green
+    pocket_color: yellow
+    contact_color: black
+    label_color: black
+    label_size: 16
+    cartoon_transparency: 0.0
+    stick_radius_ligand: 0.20
+    stick_radius_pocket: 0.14
+    dash_radius: 0.08
+
+  pymol:
+    executable_candidates:
+      - pymol
+      - pymol-open-source
+    run_headless_if_available: true
+    generate_pml_even_if_pymol_missing: true

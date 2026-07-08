@@ -1,0 +1,69 @@
+inspection_set_limits:
+  max_total_ligands: 100
+  max_per_category: 15
+
+categories:
+  low_similarity_actives:
+    tanimoto_thresholds: [0.30, 0.50]
+    require_active: true
+    require_structure_ranked: true
+
+  novel_sav_cases:
+    require_active: true
+    use_structure_added_value: true
+    top_k: 100
+    tanimoto_thresholds: [0.70, 0.50, 0.30]
+
+  similarity_driven_hits:
+    tanimoto_threshold: 0.70
+    require_high_ranked: true
+
+  consensus_inactive_false_positives:
+    require_inactive: true
+    min_methods_top_ranked: 2
+
+  active_false_negatives:
+    require_active: true
+    require_low_ranked_all_methods: true
+
+  score_anomaly_top_hits:
+    include_flags:
+      - extreme_unidock_negative
+      - suspicious_unidock_extreme_negative
+      - suspicious_ligand_efficiency_extreme
+      - extreme_positive_gnina_affinity
+      - out_of_range_cnnscore
+      - suspicious_cnnaffinity_extreme
+
+  manual_priority:
+    include:
+      - novel_sav_tanimoto_lt_0_30
+      - novel_sav_tanimoto_lt_0_50
+      - low_similarity_active_tanimoto_lt_0_30
+      - low_similarity_active_tanimoto_lt_0_50
+      - extreme_unidock_negative_top_hit
+      - consensus_inactive_false_positive
+      - active_false_negative
+
+top_rank_definitions:
+  top_fraction: 0.05
+  top_k: 100
+
+pose_sources:
+  search_dirs:
+    - results/poses
+    - results/poses/gnina
+    - results/poses/unidock
+  selected_pose_dir: results/poses/inspection_set
+
+baseline_policy:
+  deprecated_native_pdb_baseline_status: deprecated_pdb_bond_order_artifact
+  official_native_baseline_status: official_native_ligand_baseline
+  allow_pdb_native_baseline_for_selection: false
+  allow_ccd_native_baseline_for_reference: true
+
+outputs:
+  inspection_table: results/tables/example_target_pilot_inspection_shortlist.csv
+  inspection_manifest: results/reports/example_target_pilot_inspection_manifest.json
+  transfer_manifest: results/reports/example_target_pilot_selected_pose_transfer_manifest.txt
+  report: results/reports/example_target_pilot_pose_failure_inspection_report.md

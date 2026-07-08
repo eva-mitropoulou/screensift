@@ -1,0 +1,11 @@
+{
+  "command_used": "meeko_api",
+  "failed": 0,
+  "failures_path": "runs/mapk1_lit_pcba_full/tables/mapk1_lit_pcba_full_pdbqt_failures.csv",
+  "limit": null,
+  "n_jobs": 16,
+  "skipped_existing": 61846,
+  "status": "complete",
+  "successful_pdbqt": 61846,
+  "total_input_sdf": 61846
+}

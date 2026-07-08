@@ -1,0 +1,93 @@
+annotated_pose_panel:
+  include_tiers:
+    - A_analog_seed
+
+  include_controls:
+    false_positive_cases: 1
+    false_negative_cases: 1
+    score_anomaly_cases: 1
+
+  output_dir: results/figures/pose_review_panels
+  pml_dir: results/figures/pose_review_panels/annotated_pml
+  png_dir: results/figures/pose_review_panels/annotated_png
+
+  image:
+    width: 2400
+    height: 1800
+    dpi: 300
+    ray: true
+    background: white
+    opaque_background: true
+
+  cutoffs:
+    pocket_residue_cutoff_angstrom: 4.0
+    polar_contact_cutoff_angstrom: 3.5
+    close_contact_cutoff_angstrom: 4.0
+    hydrophobic_contact_cutoff_angstrom: 4.5
+    clash_warning_cutoff_angstrom: 2.0
+
+  views:
+    full_receptor:
+      zoom_target: receptor
+      zoom_buffer: 1.5
+      show_surface: false
+      show_labels: false
+
+    clean_pocket:
+      zoom_target: ligand
+      zoom_buffer: 10
+      show_surface: true
+      surface_transparency: 0.82
+      show_labels: false
+      show_distances: false
+
+    annotated_contacts:
+      zoom_target: ligand
+      zoom_buffer: 8
+      show_surface: false
+      show_labels: true
+      show_polar_contacts: true
+      show_distance_labels: true
+
+    residue_type_view:
+      zoom_target: ligand
+      zoom_buffer: 8
+      show_surface: false
+      color_residues_by_type: true
+      show_labels: true
+
+  styling:
+    receptor_color: gray80
+    ligand_color: green
+    pocket_color: yellow
+    polar_contact_color: cyan
+    close_contact_color: orange
+    clash_color: red
+    stick_radius_ligand: 0.22
+    stick_radius_pocket: 0.14
+    dash_radius: 0.08
+    label_size: 16
+    label_color: black
+
+  residue_type_colors:
+    acidic: red
+    basic: blue
+    polar: cyan
+    hydrophobic: orange
+    aromatic: magenta
+    glycine_proline: yellow
+
+  residue_groups:
+    acidic: ["ASP", "GLU"]
+    basic: ["LYS", "ARG", "HIS"]
+    polar: ["SER", "THR", "ASN", "GLN", "CYS", "TYR"]
+    hydrophobic: ["ALA", "VAL", "LEU", "ILE", "MET"]
+    aromatic: ["PHE", "TYR", "TRP", "HIS"]
+    glycine_proline: ["GLY", "PRO"]
+
+  pymol:
+    executable_candidates:
+      - pymol
+      - pymol-open-source
+    run_headless_if_available: true
+    generate_pml_even_if_pymol_missing: true

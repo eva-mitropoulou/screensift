@@ -1,0 +1,26 @@
+# Schema for the full LIT-PCBA MAPK1 ligand table.
+#
+# Input rows come from:
+#   data/raw/lit_pcba/MAPK1/actives.smi
+#   data/raw/lit_pcba/MAPK1/inactives.smi
+#
+# The combined CSV contains all 308 active rows and all 62,629 inactive rows.
+
+input:
+  path: example/mapk1/lit_pcba_full_ligands.csv
+  format: csv
+  sep: ","
+
+columns:
+  smiles: smiles
+  ligand_id: ligand_id
+  activity_label: activity_label
+
+activity:
+  mode: label
+  active_values: ["active"]
+  inactive_values: ["inactive"]
+  allow_unlabeled: false
+
+deduplicate_by: inchikey
+metadata_columns: []

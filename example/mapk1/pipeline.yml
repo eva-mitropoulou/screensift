@@ -1,0 +1,110 @@
+# MAPK1 ScreenSift example.
+#
+# This config uses the included pre-scored MAPK1 table.
+# It does not run Uni-Dock or GNINA by default.
+#
+# Run:
+#   PYTHONPATH=src python -m screensift.pipeline --config example/mapk1/pipeline.yml
+
+target: MAPK1
+run_id: example
+target_slug: mapk1
+
+workflow:
+  # ranking_only means: read an existing scored table and write one candidate CSV.
+  # This is the portable default so the example runs in seconds from the shipped
+  # pre-scored table, matching the header above and the README.
+  # Change to full_screening only when you want to run ligand prep, Uni-Dock,
+  # GNINA rescoring, redocking validation, and final ranking (needs the external
+  # docking tools and receptor inputs).
+  mode: ranking_only  # options: ranking_only, full_screening
+
+paths:
+  # Example outputs go here.
+  run_dir: runs/mapk1_example
+
+  # Needed only if workflow.mode is full_screening.
+  receptor_root: data/processed/receptors/MAPK1
+
+dataset:
+  # Maps the included MAPK1 CSV columns to ScreenSift fields.
+  schema: example/mapk1/schema.yml
+
+ranking:
+  # The table to rank. It already contains Uni-Dock and GNINA score columns.
+  score_table: example/mapk1/mapk1_phase1_score_population.csv
+
+  # Choose one:
+  #   similarity = rank only by ECFP4/Tanimoto similarity
+  #   structure  = rank only by Uni-Dock/GNINA structure evidence
+  #   combined   = rank by both evidence channels
+  evidence_mode: combined  # options: similarity, structure, combined
+
+  # Number of candidates in the output CSV.
+  n_candidates: 100
+
+  # null means compute similarity from active labels.
+  # Or put a column name if your table already has similarity values.
+  similarity_score_column: null  # options: null, column_name
+
+  # null means auto-detect standard Uni-Dock/GNINA score columns and directions:
+  #   unidock_best_score -> lower is better
+  #   CNNscore           -> higher is better
+  #   CNNaffinity        -> higher is better
+  #   gnina_affinity     -> lower is better
+  # For custom score columns, replace null with:
+  #   my_score: higher
+  #   my_docking_score: lower
+  structure_score_columns: null  # options: null, or {column_name: higher/lower}
+
+  # Combine the structure columns.
+  # max = each ligand gets its strongest normalized structure signal.
+  # weighted_mean = use structure_weights below.
+  structure_aggregation: max  # options: max, weighted_mean
+  structure_weights: null  # options: null, or {column_name: weight}
+
+  # Combine similarity and structure into candidate_score.
+  # Used only when evidence_mode is combined.
+  # max = either strong similarity or strong structure can rank a ligand highly.
+  # weighted_mean = use candidate_weights below.
+  candidate_aggregation: max  # options: max, weighted_mean
+  candidate_weights: null  # options: null, or {structure_score_norm: weight, similarity_score_norm: weight}
+
+docking:
+  # Needed only if workflow.mode is full_screening.
+  boxes: example/mapk1/mapk1_docking_boxes.csv
+  unidock_bin: unidock
+  cpu: 4
+  exhaustiveness: 8  # options: 4 smoke, 8 normal, 16+ thorough
+  max_step: 10  # search steps; leave 10 unless tuning Uni-Dock
+  num_modes: 10  # poses kept per ligand; common values: 1, 3, 5, 10
+  energy_range: 3  # kcal/mol pose window; common values: 3, 5
+
+gnina:
+  # Needed only if workflow.mode is full_screening.
+  # Use mode: native if gnina is installed directly on PATH.
+  mode: docker  # options: native, docker
+  binary: gnina
+  image: gnina/gnina
+  gpu: all  # options: all, "0", cpu, null
+  docker_args: []
+  extra_args: []
+  timeout_seconds: 1800
+  resume: true  # options: true, false
+
+redocking:
+  native:
+    # Uni-Dock native-ligand redocking validation.
+    run: true  # options: true, false
+    rmsd_threshold_angstrom: 2.0
+  gnina_score_sanity:
+    # GNINA score-only sanity check.
+    run: true  # options: true, false
+    decoy_translation_angstrom: 12.0
+
+candidate_pose_qc:
+  # Optional predicted-pose agreement check for top candidates.
+  run: false  # options: true, false
+  top_n: 25
+  consistent_rmsd_angstrom: 2.0
+  moderate_rmsd_angstrom: 4.0

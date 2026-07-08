@@ -1,0 +1,24 @@
+# Full LIT-PCBA MAPK1 screening selection.
+#
+# The pipeline stage is named split_dataset because it creates the ligand table
+# used for docking. Here it is configured to keep all known actives and all
+# available inactives, not to make a small sampled subset.
+
+# options: true, false
+include_all_inactives: true
+
+random_seed: 42
+require_all_actives: true
+deduplicate_by: inchikey
+activity_label_column: activity_label
+active_label: active
+inactive_label: inactive
+split_id_column: split_id
+descriptor_columns:
+  - mol_wt
+  - logp
+  - tpsa
+  - hbd
+  - hba
+  - rotatable_bonds
+  - heavy_atoms

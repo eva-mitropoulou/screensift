@@ -1,0 +1,30 @@
+pose_inspection:
+  max_ligands: 76
+  run_posebusters_if_available: true
+  run_prolif_if_available: true
+  generate_pymol_scripts: true
+  generate_static_images_if_possible: false
+
+interaction_checks:
+  kinase_hinge_keywords:
+    - hinge
+  distance_cutoffs:
+    hbond_angstrom: 3.5
+    hydrophobic_angstrom: 4.5
+    pi_stack_angstrom: 5.0
+
+manual_review_categories:
+  high_priority:
+    - novel_sav_tanimoto_lt_0_30
+    - novel_sav_tanimoto_lt_0_50
+    - low_similarity_active_tanimoto_lt_0_30
+    - extreme_unidock_negative_top_hit
+
+  failure_priority:
+    - consensus_inactive_false_positive
+    - active_false_negative
+    - score_anomaly_top_hit
+
+outputs:
+  pose_panel_dir: results/figures/pose_panels
+  pymol_script_dir: results/figures/pose_panels/pymol_scripts

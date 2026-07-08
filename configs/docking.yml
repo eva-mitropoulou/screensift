@@ -1,0 +1,7 @@
+docking_engine: unidock
+exhaustiveness: 8
+num_modes: 10
+energy_range: 3
+max_step: 10
+box_padding_angstrom: 6.0
+notes: "Uni-Dock phase1 uses receptor-wise ligand_index batches on the GPU."

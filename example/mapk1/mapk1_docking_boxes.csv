@@ -1,0 +1,6 @@
+pdb_id,center_x,center_y,center_z,size_x,size_y,size_z,ligand_file,receptor_pdbqt,status,notes
+4QTA,29.079295454545456,55.41534090909092,35.152477272727275,23.57,32.628,18.545,data/processed/receptors/MAPK1/4qta/native_ligand.pdb,data/processed/receptors/MAPK1/4qta/receptor.pdbqt,complete,Docking box calculated from native ligand coordinates.
+4ZZN,-15.583440000000001,14.222399999999999,42.29559999999999,21.551,18.399,18.762,data/processed/receptors/MAPK1/4zzn/native_ligand.pdb,data/processed/receptors/MAPK1/4zzn/receptor.pdbqt,complete,Docking box calculated from native ligand coordinates.
+5WP1,-15.331421052631578,12.25257894736842,41.18331578947369,18.0,19.366,18.0,data/processed/receptors/MAPK1/5wp1/native_ligand.pdb,data/processed/receptors/MAPK1/5wp1/receptor.pdbqt,complete,Docking box calculated from native ligand coordinates.
+6SLG,-2.9908055555555553,5.786777777777778,12.400722222222223,25.802,19.409,21.450000000000003,data/processed/receptors/MAPK1/6slg/native_ligand.pdb,data/processed/receptors/MAPK1/6slg/receptor.pdbqt,complete,Docking box calculated from native ligand coordinates.
+8AOJ,9.141650000000002,10.326875,43.25829999999999,21.889,18.0,19.107,data/processed/receptors/MAPK1/8aoj/native_ligand.pdb,data/processed/receptors/MAPK1/8aoj/receptor.pdbqt,complete,Docking box calculated from native ligand coordinates.

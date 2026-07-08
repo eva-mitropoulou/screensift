@@ -1,0 +1,326 @@
+import os
+import sys
+from pathlib import Path
+
+configfile: "configs/paths.yml"
+configfile: "configs/targets.yml"
+configfile: "configs/screening.yml"
+configfile: "configs/docking.yml"
+configfile: "configs/receptors.yml"
+
+PATH_KEYS = [
+    "raw_lit_pcba_dir",
+    "raw_pdb_dir",
+    "processed_ligand_dir",
+    "processed_receptor_dir",
+    "split_dir",
+    "results_table_dir",
+    "results_figure_dir",
+    "results_pose_dir",
+    "results_report_dir",
+]
+
+PATHS = {key: config[key] for key in PATH_KEYS}
+TARGETS = config["targets"]
+TARGET_ID = next(iter(TARGETS))
+TARGET_SLUG = TARGET_ID.lower()
+
+AUDIT_OUT = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_dataset_audit.csv"
+CURATED_OUT = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_ligands_curated.csv"
+FAILURES_OUT = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_curation_failures.csv"
+MANIFEST_OUT = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_dataset_manifest.json"
+DOWNLOAD_MARKER = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_download_lit_pcba.done"
+DOWNLOAD_MANIFEST = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_download_manifest.json"
+PHASE1_SPLIT_OUT = f"{PATHS['split_dir']}/{TARGET_SLUG}_phase1_screening_set.csv"
+SPLIT_MANIFEST_OUT = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_screening_splits_manifest.json"
+LEAKAGE_TABLE_OUT = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_leakage_audit_basic.csv"
+LEAKAGE_REPORT_OUT = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_leakage_audit_basic.md"
+PREFERRED_ARCHIVE = TARGETS[TARGET_ID].get("preferred_lit_pcba_archive", "full")
+SPLIT_DIR = PATHS["split_dir"]
+RAW_PDB_TARGET_DIR = f"{PATHS['raw_pdb_dir']}/{TARGET_ID}"
+PROCESSED_RECEPTOR_TARGET_DIR = f"{PATHS['processed_receptor_dir']}/{TARGET_ID}"
+PDB_FETCH_MANIFEST = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_pdb_fetch_manifest.json"
+RECEPTOR_SELECTION_OUT = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_receptor_selection.csv"
+RECEPTOR_SELECTION_REPORT = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_receptor_selection.md"
+RECEPTOR_PREP_MANIFEST = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_receptor_prep_manifest.json"
+DOCKING_BOXES_OUT = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_docking_boxes.csv"
+DOCKING_BOX_REPORT = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_docking_box_report.md"
+ENSEMBLE_VARIABILITY_OUT = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_receptor_ensemble_variability.csv"
+ENSEMBLE_VARIABILITY_FIGURE = f"{PATHS['results_figure_dir']}/{TARGET_SLUG}_receptor_ensemble_variability.png"
+ENSEMBLE_VARIABILITY_REPORT = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_receptor_ensemble_variability.md"
+PHASE1_SDF_DIR = f"{PATHS['processed_ligand_dir']}/{TARGET_ID}/phase1/sdf"
+PHASE1_PDBQT_DIR = f"{PATHS['processed_ligand_dir']}/{TARGET_ID}/phase1/pdbqt"
+PHASE1_3D_MANIFEST = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_phase1_3d_manifest.json"
+PHASE1_3D_FAILURES = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_phase1_3d_failures.csv"
+PHASE1_PDBQT_MANIFEST = f"{PATHS['results_report_dir']}/{TARGET_SLUG}_phase1_pdbqt_manifest.json"
+PHASE1_PDBQT_FAILURES = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_phase1_pdbqt_failures.csv"
+UNIDOCK_BIN = os.environ.get("UNIDOCK_BIN", "unidock")
+PYTHON_BIN = sys.executable
+PHASE1_DOCKING_INPUTS_SMOKE = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_phase1_docking_inputs_smoke.csv"
+PHASE1_UNIDOCK_SMOKE_RAW = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_phase1_unidock_smoke_raw.csv"
+PHASE1_UNIDOCK_SMOKE_SCORES = f"{PATHS['results_table_dir']}/{TARGET_SLUG}_phase1_unidock_smoke_scores.csv"
+PHASE1_UNIDOCK_SMOKE_POSE_DIR = f"{PATHS['results_pose_dir']}/unidock/{TARGET_ID}/phase1_smoke"
+
+
+rule all:
+    input:
+        AUDIT_OUT,
+        CURATED_OUT,
+        FAILURES_OUT,
+        MANIFEST_OUT,
+        PHASE1_SPLIT_OUT,
+        SPLIT_MANIFEST_OUT,
+        LEAKAGE_TABLE_OUT,
+        LEAKAGE_REPORT_OUT
+
+
+rule step3:
+    input:
+        RECEPTOR_SELECTION_OUT,
+        RECEPTOR_PREP_MANIFEST,
+        DOCKING_BOXES_OUT,
+        ENSEMBLE_VARIABILITY_OUT,
+        PHASE1_3D_MANIFEST,
+        PHASE1_PDBQT_MANIFEST
+
+
+rule step4_smoke:
+    input:
+        PHASE1_DOCKING_INPUTS_SMOKE,
+        PHASE1_UNIDOCK_SMOKE_RAW,
+        PHASE1_UNIDOCK_SMOKE_SCORES
+
+
+rule init_dirs:
+    output:
+        touch(".snakemake/init_dirs.done")
+    run:
+        for rel_path in PATHS.values():
+            Path(rel_path).mkdir(parents=True, exist_ok=True)
+        Path(PATHS["raw_lit_pcba_dir"], TARGET_ID).mkdir(parents=True, exist_ok=True)
+        Path(PATHS["raw_pdb_dir"], TARGET_ID).mkdir(parents=True, exist_ok=True)
+        Path(PATHS["processed_receptor_dir"], TARGET_ID).mkdir(parents=True, exist_ok=True)
+        Path(PATHS["processed_ligand_dir"], TARGET_ID).mkdir(parents=True, exist_ok=True)
+        Path(PATHS["results_pose_dir"], "unidock", TARGET_ID).mkdir(parents=True, exist_ok=True)
+
+
+rule download_lit_pcba:
+    input:
+        "configs/targets.yml",
+        "configs/paths.yml",
+        rules.init_dirs.output
+    output:
+        marker=touch(DOWNLOAD_MARKER),
+        manifest=DOWNLOAD_MANIFEST
+    shell:
+        "PYTHONPATH=src python src/screensift/curation/download_lit_pcba.py "
+        "--target-config configs/targets.yml "
+        "--paths configs/paths.yml "
+        "--target {TARGET_ID} "
+        "--archive {PREFERRED_ARCHIVE}"
+
+
+rule audit_lit_pcba:
+    input:
+        "configs/targets.yml",
+        "configs/paths.yml",
+        DOWNLOAD_MARKER
+    output:
+        audit=AUDIT_OUT,
+        curated=CURATED_OUT,
+        failures=FAILURES_OUT,
+        manifest=MANIFEST_OUT
+    shell:
+        "PYTHONPATH=src python src/screensift/curation/audit_lit_pcba.py "
+        "--target-config configs/targets.yml "
+        "--paths configs/paths.yml "
+        "--target {TARGET_ID} "
+        "--out {output.audit} "
+        "--manifest {output.manifest}"
+
+
+rule make_screening_splits:
+    input:
+        curated=CURATED_OUT,
+        config="configs/screening.yml"
+    output:
+        phase1=PHASE1_SPLIT_OUT,
+        manifest=SPLIT_MANIFEST_OUT
+    shell:
+        "PYTHONPATH=src {PYTHON_BIN} src/screensift/curation/make_screening_splits.py "
+        "--curated {input.curated} "
+        "--screening-config {input.config} "
+        "--out-dir {SPLIT_DIR} "
+        "--report {output.manifest} "
+        "--target-slug {TARGET_SLUG}"
+
+
+rule basic_leakage_audit:
+    input:
+        curated=CURATED_OUT
+    output:
+        table=LEAKAGE_TABLE_OUT,
+        report=LEAKAGE_REPORT_OUT
+    shell:
+        "PYTHONPATH=src python src/screensift/curation/leakage_audit.py "
+        "--curated {input.curated} "
+        "--out {output.table} "
+        "--report {output.report}"
+
+
+rule fetch_pdbs:
+    input:
+        "configs/receptors.yml",
+        "configs/paths.yml",
+        rules.init_dirs.output
+    output:
+        manifest=PDB_FETCH_MANIFEST
+    shell:
+        "PYTHONPATH=src python src/screensift/receptors/fetch_pdbs.py "
+        "--receptor-config configs/receptors.yml "
+        "--paths configs/paths.yml "
+        "--target {TARGET_ID} "
+        "--out-report {output.manifest}"
+
+
+rule select_receptors:
+    input:
+        manifest=PDB_FETCH_MANIFEST,
+        config="configs/receptors.yml"
+    output:
+        selection=RECEPTOR_SELECTION_OUT,
+        report=RECEPTOR_SELECTION_REPORT
+    shell:
+        "PYTHONPATH=src python src/screensift/receptors/select_receptors.py "
+        "--raw-pdb-dir {RAW_PDB_TARGET_DIR} "
+        "--receptor-config {input.config} "
+        "--out {output.selection} "
+        "--report {output.report} "
+        "--target {TARGET_ID}"
+
+
+rule prepare_receptors:
+    input:
+        selection=RECEPTOR_SELECTION_OUT,
+        paths="configs/paths.yml"
+    output:
+        manifest=RECEPTOR_PREP_MANIFEST
+    shell:
+        "PYTHONPATH=src python src/screensift/receptors/prepare_receptors.py "
+        "--selection {input.selection} "
+        "--paths {input.paths} "
+        "--out-dir {PROCESSED_RECEPTOR_TARGET_DIR} "
+        "--report {output.manifest}"
+
+
+rule define_docking_boxes:
+    input:
+        manifest=RECEPTOR_PREP_MANIFEST,
+        config="configs/receptors.yml"
+    output:
+        boxes=DOCKING_BOXES_OUT,
+        report=DOCKING_BOX_REPORT
+    shell:
+        "PYTHONPATH=src python src/screensift/receptors/define_docking_boxes.py "
+        "--receptor-dir {PROCESSED_RECEPTOR_TARGET_DIR} "
+        "--receptor-config {input.config} "
+        "--out {output.boxes} "
+        "--report {output.report} "
+        "--target {TARGET_ID}"
+
+
+rule ensemble_variability:
+    input:
+        manifest=RECEPTOR_PREP_MANIFEST,
+        boxes=DOCKING_BOXES_OUT
+    output:
+        table=ENSEMBLE_VARIABILITY_OUT,
+        figure=ENSEMBLE_VARIABILITY_FIGURE,
+        report=ENSEMBLE_VARIABILITY_REPORT
+    shell:
+        "PYTHONPATH=src python src/screensift/receptors/ensemble_variability.py "
+        "--receptor-dir {PROCESSED_RECEPTOR_TARGET_DIR} "
+        "--boxes {input.boxes} "
+        "--out {output.table} "
+        "--figure {output.figure} "
+        "--report {output.report}"
+
+
+rule generate_phase1_3d:
+    input:
+        split=PHASE1_SPLIT_OUT
+    output:
+        sdf_dir=directory(PHASE1_SDF_DIR),
+        manifest=PHASE1_3D_MANIFEST,
+        failures=PHASE1_3D_FAILURES
+    threads: 16
+    shell:
+        "PYTHONPATH=src python src/screensift/ligands/generate_3d_conformers.py "
+        "--input {input.split} "
+        "--out-dir {output.sdf_dir} "
+        "--report {output.manifest} "
+        "--failures {output.failures} "
+        "--n-jobs {threads}"
+
+
+rule prepare_phase1_pdbqt:
+    input:
+        sdf_dir=PHASE1_SDF_DIR,
+        manifest=PHASE1_3D_MANIFEST
+    output:
+        pdbqt_dir=directory(PHASE1_PDBQT_DIR),
+        manifest=PHASE1_PDBQT_MANIFEST,
+        failures=PHASE1_PDBQT_FAILURES
+    threads: 16
+    shell:
+        "PYTHONPATH=src python src/screensift/ligands/prepare_pdbqt_ligands.py "
+        "--sdf-dir {input.sdf_dir} "
+        "--out-dir {output.pdbqt_dir} "
+        "--report {output.manifest} "
+        "--failures {output.failures} "
+        "--n-jobs {threads}"
+
+
+rule collect_docking_inputs_smoke:
+    input:
+        boxes=DOCKING_BOXES_OUT
+    output:
+        inputs=PHASE1_DOCKING_INPUTS_SMOKE
+    shell:
+        "PYTHONPATH=src {PYTHON_BIN} src/screensift/docking/collect_docking_inputs.py "
+        "--ligand-pdbqt-dir {PHASE1_PDBQT_DIR} "
+        "--boxes {input.boxes} "
+        "--out {output.inputs} "
+        "--limit 10 "
+        "--single-receptor "
+        "--output-root {PHASE1_UNIDOCK_SMOKE_POSE_DIR}"
+
+
+rule run_unidock_smoke:
+    input:
+        inputs=PHASE1_DOCKING_INPUTS_SMOKE
+    output:
+        raw=PHASE1_UNIDOCK_SMOKE_RAW
+    threads: 4
+    shell:
+        "PYTHONPATH=src {PYTHON_BIN} src/screensift/docking/run_unidock.py "
+        "--inputs {input.inputs} "
+        "--out-root {PHASE1_UNIDOCK_SMOKE_POSE_DIR} "
+        "--scores {output.raw} "
+        "--unidock-bin {UNIDOCK_BIN} "
+        "--exhaustiveness {config[exhaustiveness]} "
+        "--max-step {config[max_step]} "
+        "--num-modes {config[num_modes]} "
+        "--energy-range {config[energy_range]} "
+        "--cpu {threads}"
+
+
+rule parse_unidock_smoke:
+    input:
+        raw=PHASE1_UNIDOCK_SMOKE_RAW
+    output:
+        scores=PHASE1_UNIDOCK_SMOKE_SCORES
+    shell:
+        "PYTHONPATH=src {PYTHON_BIN} src/screensift/docking/parse_unidock_scores.py "
+        "--raw {input.raw} "
+        "--out {output.scores}"

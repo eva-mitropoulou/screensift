@@ -1,0 +1,22 @@
+input:
+  path: example/mapk1/mapk1_phase1_score_population.csv
+  format: csv
+  sep: ","
+
+columns:
+  smiles: canonical_smiles
+  ligand_id: ligand_id
+  activity_label: activity_label
+
+activity:
+  mode: label
+  active_values: ["active"]
+  inactive_values: ["inactive"]
+  allow_unlabeled: true
+
+deduplicate_by: inchikey
+metadata_columns:
+  - unidock_best_score
+  - CNNscore
+  - CNNaffinity
+  - gnina_affinity

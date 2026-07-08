@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "screensift"
+version = "0.1.0"
+description = "Schema-driven ligand candidate selection from screening datasets and optional score columns."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Eva Mitropoulou" }
+]
+keywords = [
+  "virtual screening",
+  "docking",
+  "ligand similarity",
+  "candidate triage",
+  "screening",
+]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Chemistry",
+]
+dependencies = [
+  "numpy>=1.23",
+  "pandas>=1.5",
+  "pyyaml>=6.0",
+  "rdkit>=2022.9",
+  "scikit-learn>=1.1",
+  "scipy>=1.9",
+  "joblib>=1.2",
+]
+
+[project.optional-dependencies]
+# Full end-to-end workflow (docking prep, receptor prep, plotting, downloads).
+# The core `screensift.find_candidates` API needs only the base dependencies.
+workflow = [
+  "meeko>=0.5",
+  "matplotlib>=3.5",
+  "requests>=2.28",
+  "biopython>=1.80",
+]
+test = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/emitropoulou/screensift"
+Repository = "https://github.com/emitropoulou/screensift"
+Issues = "https://github.com/emitropoulou/screensift/issues"
+
+[project.scripts]
+screensift = "screensift.cli:main"
+screensift-run-pipeline = "screensift.pipeline:main"
+screensift-adapt-dataset = "screensift.curation.adapt_dataset_schema:main"
+screensift-make-splits = "screensift.curation.make_screening_splits:main"
+screensift-generate-3d = "screensift.ligands.generate_3d_conformers:main"
+screensift-prepare-pdbqt = "screensift.ligands.prepare_pdbqt_ligands:main"
+screensift-collect-docking-inputs = "screensift.docking.collect_docking_inputs:main"
+screensift-run-unidock = "screensift.docking.run_unidock:main"
+screensift-parse-unidock = "screensift.docking.parse_unidock_scores:main"
+screensift-redock-native = "screensift.validation.run_native_redocking:main"
+screensift-validate-gnina-rescoring = "screensift.validation.validate_gnina_rescoring:main"
+screensift-candidate-pose-qc = "screensift.validation.run_candidate_pose_qc:main"
+screensift-triage-candidates = "screensift.validation.triage_candidates:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["screensift*"]
+
+[tool.setuptools.package-data]
+screensift = ["py.typed"]

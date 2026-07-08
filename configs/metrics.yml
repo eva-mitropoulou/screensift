@@ -1,0 +1,52 @@
+random_seed: 42
+bootstrap_iterations: 1000
+bootstrap_confidence: 0.95
+
+top_fractions: [0.01, 0.05, 0.10]
+top_ks: [50, 100, 250]
+
+anomaly_thresholds:
+  cnnscore_min: 0.0
+  cnnscore_max: 1.0
+  cnnaffinity_min: -5.0
+  cnnaffinity_max: 20.0
+  gnina_affinity_positive_threshold: 0.0
+  gnina_affinity_extreme_positive_threshold: 20.0
+  unidock_suspicious_negative_threshold: -15.0
+  unidock_extreme_negative_threshold: -20.0
+  unidock_positive_threshold: 0.0
+  ligand_efficiency_extreme_negative_threshold: -0.8
+
+score_methods:
+  unidock_best:
+    column_candidates: ["unidock_best_score", "best_score", "unidock_score", "score"]
+    direction: "lower"
+
+  gnina_cnnscore:
+    column_candidates: ["CNNscore", "cnnscore", "gnina_cnnscore"]
+    direction: "higher"
+
+  gnina_cnnaffinity:
+    column_candidates: ["CNNaffinity", "cnnaffinity", "gnina_cnnaffinity"]
+    direction: "higher"
+
+  gnina_cnn_vs:
+    column_candidates: ["CNN_VS", "CNN_VS_score", "cnn_vs", "gnina_cnn_vs"]
+    direction: "higher"
+
+  gnina_affinity:
+    column_candidates: ["gnina_affinity", "affinity", "GNINA_affinity"]
+    direction: "lower"
+
+rank_fusion_methods:
+  - name: fusion_unidock_cnnscore
+    methods: ["unidock_best", "gnina_cnnscore"]
+
+  - name: fusion_unidock_cnnaffinity
+    methods: ["unidock_best", "gnina_cnnaffinity"]
+
+  - name: fusion_cnnscore_cnnaffinity
+    methods: ["gnina_cnnscore", "gnina_cnnaffinity"]
+
+  - name: fusion_unidock_cnnscore_cnnaffinity
+    methods: ["unidock_best", "gnina_cnnscore", "gnina_cnnaffinity"]

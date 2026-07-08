@@ -1,0 +1,16 @@
+random_seed: 42
+phase1_inactives: 5000
+require_all_actives: true
+deduplicate_by: inchikey
+activity_label_column: activity_label
+active_label: active
+inactive_label: inactive
+split_id_column: split_id
+descriptor_columns:
+  - mol_wt
+  - logp
+  - tpsa
+  - hbd
+  - hba
+  - rotatable_bonds
+  - heavy_atoms
