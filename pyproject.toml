@@ -49,9 +49,9 @@ workflow = [
 test = ["pytest>=7.0"]
 
 [project.urls]
-Homepage = "https://github.com/emitropoulou/screensift"
-Repository = "https://github.com/emitropoulou/screensift"
-Issues = "https://github.com/emitropoulou/screensift/issues"
+Homepage = "https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening"
+Repository = "https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening"
+Issues = "https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening/issues"
 
 [project.scripts]
 screensift = "screensift.cli:main"

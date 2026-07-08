@@ -1,5 +1,7 @@
 # ScreenSift
 
+[![CI](https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening/actions/workflows/ci.yml/badge.svg)](https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening/actions/workflows/ci.yml)
+
 <p align="center">
   <img src="docs/assets/screensift-logo.png" alt="ScreenSift logo" width="220">
 </p>
