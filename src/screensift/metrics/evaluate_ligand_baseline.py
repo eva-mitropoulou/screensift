@@ -62,7 +62,7 @@ STRUCTURE_METHODS_FOR_NOVELTY = [
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Evaluate ligand-only ECFP4 baseline and leakage analyses.")
     parser.add_argument("--baseline-config", default="configs/ligand_baseline.yml")
-    parser.add_argument("--score-population", default="results/tables/mapk1_phase1_score_population.csv")
+    parser.add_argument("--score-population", default="example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv")
     parser.add_argument("--metrics-config", default="configs/metrics.yml")
     parser.add_argument("--tables-dir", default="results/tables")
     parser.add_argument("--figures-dir", default="results/figures")

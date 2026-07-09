@@ -25,7 +25,7 @@ def test_pipeline_dry_run_writes_manifest(tmp_path: Path) -> None:
         "paths": {"run_dir": str(tmp_path / "run"), "receptor_root": str(tmp_path / "receptors")},
         "dataset": {"schema": "example/mapk1/schema.yml"},
         "ranking": {
-            "score_table": "example/mapk1/mapk1_phase1_score_population.csv",
+            "score_table": "example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv",
             "structure_score_columns": {"unidock_best_score": "lower"},
             "n_candidates": 5,
         },
@@ -50,7 +50,7 @@ def test_pipeline_ranking_only_workflow_selects_rank_stage(tmp_path: Path) -> No
         "paths": {"run_dir": str(tmp_path / "run")},
         "dataset": {"schema": "example/mapk1/schema.yml"},
         "ranking": {
-            "score_table": "example/mapk1/mapk1_phase1_score_population.csv",
+            "score_table": "example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv",
             "evidence_mode": "similarity",
             "n_candidates": 5,
         },

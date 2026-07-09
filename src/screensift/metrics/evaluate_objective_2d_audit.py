@@ -46,7 +46,7 @@ LOGGER = setup_logger(__name__)
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run objective 2D ligand-similarity audit.")
     parser.add_argument("--audit-config", default="configs/objective_2d_audit.yml")
-    parser.add_argument("--score-population", default="results/tables/mapk1_phase1_score_population.csv")
+    parser.add_argument("--score-population", default="example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv")
     parser.add_argument("--full-population", default="results/tables/mapk1_phase1_full_population_with_ecfp4_and_anomalies.csv")
     parser.add_argument("--clean-population", default="results/tables/mapk1_phase1_clean_population_with_ecfp4_and_anomalies.csv")
     parser.add_argument("--metrics-config", default="configs/metrics.yml")
