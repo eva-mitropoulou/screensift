@@ -5,20 +5,12 @@
   <img src="docs/assets/screensift-logo.png" alt="ScreenSift logo" width="220">
 </p>
 
-ScreenSift is a Python package I built for a practical virtual-screening
-problem: after curation, docking, rescoring, and similarity analysis, I want one
-ranked ligand table that still shows why each compound was selected.
+ScreenSift is a Python package built around a practical virtual-screening problem: how do we combine 2D ligand-based evidence and 3D structure-based evidence into one ranked ligand table while still preserving the reason each compound was selected?
 
-The workflow starts from a ligand table, curates molecules with RDKit, prepares
-docking inputs with Meeko, screens with Uni-Dock, rescores poses with GNINA, and
-can add ECFP4/Tanimoto similarity to known actives. The output is not a claim
-that a ligand is active; it is a transparent triage table for deciding what is
-worth follow-up.
+The workflow starts from a ligand table, curates molecular structures with RDKit, prepares docking inputs with Meeko, screens compounds with Uni-Dock, rescores docked poses with GNINA, and optionally adds ECFP4/Tanimoto similarity against known actives. The final output is a transparent triage table that ranks compounds while preserving the evidence behind each selection.
 
-I validated the workflow on the LIT-PCBA MAPK1 benchmark using native-ligand
-redocking, two MAPK1 receptor setups, Uni-Dock screening, GNINA rescoring,
-similarity scoring, and final candidate ranking. The details of that run are
-reported below.
+I validated ScreenSift on the LIT-PCBA MAPK1 benchmark using native-ligand redocking, two MAPK1 receptor setups, Uni-Dock virtual screening, GNINA rescoring, ligand-similarity scoring, and final candidate ranking. The details of that benchmark run are reported below.
+
 
 ## Quickstart
 
