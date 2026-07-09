@@ -1,12 +1,14 @@
 # MAPK1 Example
 
-This directory contains a runnable MAPK1 ScreenSift example built from the existing phase 1 scored ligand table.
+This directory contains a runnable MAPK1 ScreenSift example built from the
+existing two-receptor scored ligand table.
 
 Input files:
 
 - `schema.yml`: maps the MAPK1 table columns to ScreenSift fields.
-- `mapk1_phase1_score_population.csv`: scored MAPK1 ligand table with canonical molecules, activity labels, Uni-Dock scores, and GNINA scores.
-- `mapk1_docking_boxes.csv`: MAPK1 docking-box definitions used only if you switch the example to `full_screening`.
+- `expected_outputs/mapk1_2receptor_score_population.csv`: scored MAPK1 ligand table for 4QTA and 6SLG with canonical molecules, activity labels, Uni-Dock scores, GNINA scores, and saved ECFP4/Tanimoto similarity.
+- `expected_outputs/mapk1_candidates.csv`: top-100 candidate table produced from the two-receptor score population.
+- `mapk1_docking_boxes.csv`: docking-box definitions for 4QTA and 6SLG, used only if you switch the example to `full_screening`.
 - `lit_pcba_full_ligands.csv`: full MAPK1 LIT-PCBA ligand table made from `actives.smi` and `inactives.smi`.
 - `lit_pcba_full_schema.yml`: schema for the full LIT-PCBA ligand table.
 - `full_lit_pcba_screening.yml`: screening config that keeps all actives and all inactives.
@@ -27,9 +29,13 @@ The equivalent CLI command is:
 ```bash
 PYTHONPATH=src python -m screensift.cli \
   --schema example/mapk1/schema.yml \
+  --data example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv \
   --target MAPK1 \
+  --similarity-score ecfp4_active_similarity \
   --structure-aggregation max \
-  --candidate-aggregation max \
+  --candidate-aggregation weighted_mean \
+  --candidate-weight similarity_score_norm:0.75 \
+  --candidate-weight structure_score_norm:0.25 \
   --structure-cutoff 0.70 \
   --similarity-cutoff 0.70 \
   --n-candidates 100 \
@@ -60,20 +66,12 @@ ranking:
 
 `ranking.evidence_mode` says how the candidates are scored: `similarity`, `structure`, or `combined`.
 
-Weighted aggregation is also supported, but the user must supply the weights explicitly. Example:
+The included example uses weighted candidate aggregation:
 
-```bash
-PYTHONPATH=src python -m screensift.cli \
-  --schema example/mapk1/schema.yml \
-  --target MAPK1 \
-  --structure-aggregation weighted_mean \
-  --structure-weight unidock_best_score:0.40 \
-  --structure-weight CNNscore:0.30 \
-  --structure-weight CNNaffinity:0.20 \
-  --structure-weight gnina_affinity:0.10 \
-  --candidate-aggregation weighted_mean \
-  --candidate-weight structure_score_norm:0.80 \
-  --candidate-weight similarity_score_norm:0.20 \
-  --n-candidates 100 \
-  --out runs/mapk1_example/tables/mapk1_example_candidates.csv
+```yaml
+similarity_score_column: ecfp4_active_similarity
+candidate_aggregation: weighted_mean
+candidate_weights:
+  similarity_score_norm: 0.75
+  structure_score_norm: 0.25
 ```

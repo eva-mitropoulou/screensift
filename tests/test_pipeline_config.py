@@ -13,6 +13,7 @@ from screensift.pipeline import (
     selected_stages,
     write_redocking_filtered_boxes,
 )
+from screensift.validation.run_native_redocking import box_for_attempt, redocking_attempts
 
 
 def test_pipeline_dry_run_writes_manifest(tmp_path: Path) -> None:
@@ -110,6 +111,37 @@ def test_redocking_filter_keeps_only_passing_receptors(tmp_path: Path) -> None:
 
     assert filtered["pdb_id"].tolist() == ["PASS"]
     assert pd.read_csv(out)["pdb_id"].tolist() == ["PASS"]
+
+
+def test_redocking_auto_tune_attempts_are_user_defined() -> None:
+    attempts = redocking_attempts(
+        [
+            {"name": "baseline", "exhaustiveness": 8, "box_scale": 1.0},
+            {"name": "wide", "exhaustiveness": 16, "box_padding_angstrom": 2.0},
+        ],
+        exhaustiveness=4,
+        num_modes=3,
+        energy_range=2,
+        seed=7,
+    )
+
+    assert [attempt["name"] for attempt in attempts] == ["baseline", "wide"]
+    assert [attempt["exhaustiveness"] for attempt in attempts] == [8, 16]
+    assert attempts[0]["num_modes"] == 3
+    assert attempts[1]["box_padding_angstrom"] == 2.0
+
+
+def test_redocking_attempt_box_size_can_scale_or_pad() -> None:
+    box = {"size_x": 10.0, "size_y": 20.0, "size_z": 30.0}
+
+    scaled = box_for_attempt(box, {"box_scale": 1.2, "box_padding_angstrom": 1.0})
+    explicit = box_for_attempt(box, {"size_x": 15.0, "box_scale": 2.0})
+
+    assert scaled["size_x"] == 14.0
+    assert scaled["size_y"] == 26.0
+    assert scaled["size_z"] == 38.0
+    assert explicit["size_x"] == 15.0
+    assert explicit["size_y"] == 40.0
 
 
 def test_prepare_score_population_enriches_gnina_scores(tmp_path: Path) -> None:

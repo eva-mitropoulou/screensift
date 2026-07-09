@@ -90,6 +90,7 @@ def output_paths(config: dict[str, Any]) -> dict[str, Path]:
         "unidock_best": tables / f"{slug}_{run_id}_unidock_best_per_ligand.csv",
         "unidock_qc_report": reports / f"{slug}_{run_id}_unidock_score_qc.md",
         "native_redocking": tables / f"{slug}_{run_id}_native_redocking.csv",
+        "native_redocking_attempts": tables / f"{slug}_{run_id}_native_redocking_attempts.csv",
         "native_redocking_report": reports / f"{slug}_{run_id}_native_redocking_report.md",
         "redocking_filtered_boxes": tables / f"{slug}_{run_id}_redocking_passed_boxes.csv",
         "gnina_input": tables / f"{slug}_{run_id}_gnina_input.csv",
@@ -308,7 +309,11 @@ def _run_stage(stage: str, config: dict[str, Any], paths: dict[str, Path], force
     elif stage == "unidock_qc":
         audit_unidock_scores(paths["unidock_scores"], paths["split"], paths["unidock_clean"], paths["unidock_flags"], paths["unidock_best"], paths["unidock_qc_report"])
     elif stage == "native_redocking":
-        redocking = redock_native_ligands(get_nested(config, "docking", "boxes"), paths["native_redocking"], paths["native_redocking_report"], paths["poses"] / "native_redocking", paths["logs"] / "native_redocking", unidock_bin=get_nested(config, "docking", "unidock_bin", default="unidock"), rmsd_threshold_angstrom=float(get_nested(config, "redocking", "native", "rmsd_threshold_angstrom", default=2.0)), cpu=int(get_nested(config, "docking", "cpu", default=1)), exhaustiveness=int(get_nested(config, "docking", "exhaustiveness", default=8)), num_modes=int(get_nested(config, "docking", "num_modes", default=10)), energy_range=float(get_nested(config, "docking", "energy_range", default=3)))
+        auto_tune_enabled = bool(get_nested(config, "redocking", "native", "auto_tune", "enabled", default=False))
+        auto_tune_attempts = get_nested(config, "redocking", "native", "auto_tune", "attempts", default=None) if auto_tune_enabled else None
+        if auto_tune_enabled and not auto_tune_attempts:
+            raise ValueError("redocking.native.auto_tune.enabled is true, so redocking.native.auto_tune.attempts must be a non-empty list.")
+        redocking = redock_native_ligands(get_nested(config, "docking", "boxes"), paths["native_redocking"], paths["native_redocking_report"], paths["poses"] / "native_redocking", paths["logs"] / "native_redocking", unidock_bin=get_nested(config, "docking", "unidock_bin", default="unidock"), rmsd_threshold_angstrom=float(get_nested(config, "redocking", "native", "rmsd_threshold_angstrom", default=2.0)), cpu=int(get_nested(config, "docking", "cpu", default=1)), exhaustiveness=int(get_nested(config, "docking", "exhaustiveness", default=8)), num_modes=int(get_nested(config, "docking", "num_modes", default=10)), energy_range=float(get_nested(config, "docking", "energy_range", default=3)), auto_tune_attempts=auto_tune_attempts, attempts_out_path=paths["native_redocking_attempts"])
         if redocking_gate_enabled(config):
             write_redocking_filtered_boxes(get_nested(config, "docking", "boxes"), redocking, paths["redocking_filtered_boxes"], require_pass=True)
     elif stage == "gnina_input":

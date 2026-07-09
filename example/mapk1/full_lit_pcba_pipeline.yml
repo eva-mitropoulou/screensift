@@ -4,7 +4,7 @@
 # It is intentionally set up for the full workflow:
 #   full LIT-PCBA MAPK1 ligands
 #   -> Uni-Dock native redocking validation
-#   -> keep only receptors that pass the redocking RMSD gate
+#   -> two validated receptors, 4QTA and 6SLG
 #   -> ligand 3D/PDBQT preparation
 #   -> Uni-Dock screening
 #   -> GNINA Docker GPU score-only rescoring
@@ -42,7 +42,7 @@ limits:
   # null means run the full configured LIT-PCBA set.
   ligands: null  # options: null, positive integer
 
-  # false means use all complete MAPK1 receptors from the docking-box table.
+  # false means use both MAPK1 receptors from the docking-box table.
   single_receptor: false  # options: true, false
 
 ligands:
@@ -54,7 +54,7 @@ ligands:
   conformer_timeout_seconds: 120
 
 docking:
-  # MAPK1 receptor boxes. Receptor paths inside this file point to data/processed/receptors/MAPK1.
+  # MAPK1 receptor boxes for 4QTA and 6SLG.
   boxes: example/mapk1/mapk1_docking_boxes.csv
 
   # Uni-Dock executable discovered locally.
@@ -95,12 +95,34 @@ redocking:
     # before the expensive many-ligand docking stage.
     run: true  # options: true, false
 
-    # true means: write a filtered docking-box table containing only receptors
-    # that pass rmsd_threshold_angstrom, then screen ligands only against those
-    # receptors. Set false to report redocking but keep all receptors.
-    filter_receptors: false  # options: true, false; true gates the screen on the RMSD threshold once configs are validated
+    # false means: report redocking pass/fail but keep both configured receptors.
+    # true means: require a redocking-passed docking-box table and use only
+    # receptors that pass rmsd_threshold_angstrom for many-ligand screening.
+    filter_receptors: false  # options: true, false
 
     rmsd_threshold_angstrom: 2.0
+
+    # Optional user-defined tuning loop for native redocking.
+    # enabled: false means one redocking run uses the docking settings above.
+    # enabled: true means ScreenSift tries ONLY the attempts listed below, in order.
+    # For each receptor it stops at the first attempt that passes rmsd_threshold_angstrom.
+    # box_scale multiplies size_x/size_y/size_z from mapk1_docking_boxes.csv.
+    # box_padding_angstrom adds padding to each side, so total size grows by 2 * padding.
+    auto_tune:
+      enabled: false  # options: true, false
+      attempts:
+        - name: baseline
+          exhaustiveness: 8
+          box_scale: 1.0
+          box_padding_angstrom: 0.0
+        - name: wider_box
+          exhaustiveness: 16
+          box_scale: 1.2
+          box_padding_angstrom: 0.0
+        - name: wider_box_more_search
+          exhaustiveness: 32
+          box_scale: 1.2
+          box_padding_angstrom: 2.0
 
   gnina_score_sanity:
     # Score native/redocked/decoy poses with GNINA to sanity-check rescoring.
@@ -125,7 +147,8 @@ ranking:
   # Final candidate count.
   n_candidates: 100
 
-  # null means compute ECFP4/Tanimoto similarity from active labels.
+  # null means compute ECFP4/Tanimoto similarity from active labels during ranking.
+  # Use a column name only when your full score table already has saved similarity values.
   similarity_score_column: null  # options: null, column_name
 
   # null means auto-detect standard Uni-Dock/GNINA score columns and directions:
@@ -140,5 +163,7 @@ ranking:
   structure_weights: null  # options: null, or {column_name: weight}
 
   # Combine similarity and structure into the final candidate_score.
-  candidate_aggregation: max  # options: max, weighted_mean
-  candidate_weights: null  # options: null, or {structure_score_norm: weight, similarity_score_norm: weight}
+  candidate_aggregation: weighted_mean  # options: max, weighted_mean
+  candidate_weights:  # options: {structure_score_norm: weight, similarity_score_norm: weight}
+    similarity_score_norm: 0.75
+    structure_score_norm: 0.25

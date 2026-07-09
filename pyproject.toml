@@ -47,11 +47,21 @@ workflow = [
   "biopython>=1.80",
 ]
 test = ["pytest>=7.0"]
+# Lightweight CI: run the FULL test suite on PyPI-only wheels. Several test
+# modules import matplotlib/requests/biopython at module load; the heavier
+# docking tools (meeko, openbabel, gnina, unidock) stay out because the code
+# paths that need them are imported lazily and are not exercised in CI.
+ci = [
+  "pytest>=7.0",
+  "matplotlib>=3.5",
+  "requests>=2.28",
+  "biopython>=1.80",
+]
 
 [project.urls]
-Homepage = "https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening"
-Repository = "https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening"
-Issues = "https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening/issues"
+Homepage = "https://github.com/eva-mitropoulou/screensift"
+Repository = "https://github.com/eva-mitropoulou/screensift"
+Issues = "https://github.com/eva-mitropoulou/screensift/issues"
 
 [project.scripts]
 screensift = "screensift.cli:main"

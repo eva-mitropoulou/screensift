@@ -1,5 +1,5 @@
 input:
-  path: example/mapk1/mapk1_phase1_score_population.csv
+  path: example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv
   format: csv
   sep: ","
 
@@ -17,6 +17,7 @@ activity:
 deduplicate_by: inchikey
 metadata_columns:
   - unidock_best_score
-  - CNNscore
-  - CNNaffinity
+  - ecfp4_active_similarity
+  - cnnscore
+  - cnnaffinity
   - gnina_affinity

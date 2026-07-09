@@ -1,6 +1,6 @@
 # MAPK1 ScreenSift example.
 #
-# This config uses the included pre-scored MAPK1 table.
+# This config uses the included pre-scored MAPK1 two-receptor table.
 # It does not run Uni-Dock or GNINA by default.
 #
 # Run:
@@ -31,8 +31,9 @@ dataset:
   schema: example/mapk1/schema.yml
 
 ranking:
-  # The table to rank. It already contains Uni-Dock and GNINA score columns.
-  score_table: example/mapk1/mapk1_phase1_score_population.csv
+  # The table to rank. It already contains Uni-Dock and GNINA score columns
+  # from the two MAPK1 receptors used in the example: 4QTA and 6SLG.
+  score_table: example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv
 
   # Choose one:
   #   similarity = rank only by ECFP4/Tanimoto similarity
@@ -43,9 +44,9 @@ ranking:
   # Number of candidates in the output CSV.
   n_candidates: 100
 
-  # null means compute similarity from active labels.
-  # Or put a column name if your table already has similarity values.
-  similarity_score_column: null  # options: null, column_name
+  # Use the saved all-ligand ECFP4/Tanimoto similarity column in the score table.
+  # Set null only if you want ScreenSift to compute similarity during ranking.
+  similarity_score_column: ecfp4_active_similarity  # options: null, column_name
 
   # null means auto-detect standard Uni-Dock/GNINA score columns and directions:
   #   unidock_best_score -> lower is better
@@ -65,10 +66,11 @@ ranking:
 
   # Combine similarity and structure into candidate_score.
   # Used only when evidence_mode is combined.
-  # max = either strong similarity or strong structure can rank a ligand highly.
-  # weighted_mean = use candidate_weights below.
-  candidate_aggregation: max  # options: max, weighted_mean
-  candidate_weights: null  # options: null, or {structure_score_norm: weight, similarity_score_norm: weight}
+  # weighted_mean uses the explicit weights below.
+  candidate_aggregation: weighted_mean  # options: max, weighted_mean
+  candidate_weights:  # options: {structure_score_norm: weight, similarity_score_norm: weight}
+    similarity_score_norm: 0.75
+    structure_score_norm: 0.25
 
 docking:
   # Needed only if workflow.mode is full_screening.
@@ -98,11 +100,34 @@ redocking:
     # In full_screening mode this runs before the many-ligand docking stage.
     run: true  # options: true, false
 
-    # true means: only receptors that pass the RMSD threshold are used for
-    # many-ligand Uni-Dock screening. Set false to keep all complete receptors.
-    filter_receptors: false  # options: true, false; true gates the screen on the RMSD threshold once configs are validated
+    # false means: report redocking pass/fail but keep all complete receptors.
+    # true means: require a redocking-passed docking-box table and use only
+    # receptors that pass the RMSD threshold for many-ligand screening.
+    filter_receptors: false  # options: true, false
 
     rmsd_threshold_angstrom: 2.0
+
+    # Optional user-defined tuning loop for native redocking.
+    # enabled: false means one redocking run uses the docking settings above.
+    # enabled: true means ScreenSift tries ONLY the attempts listed below, in order.
+    # For each receptor it stops at the first attempt that passes rmsd_threshold_angstrom.
+    # box_scale multiplies size_x/size_y/size_z from mapk1_docking_boxes.csv.
+    # box_padding_angstrom adds padding to each side, so total size grows by 2 * padding.
+    auto_tune:
+      enabled: false  # options: true, false
+      attempts:
+        - name: baseline
+          exhaustiveness: 8
+          box_scale: 1.0
+          box_padding_angstrom: 0.0
+        - name: wider_box
+          exhaustiveness: 16
+          box_scale: 1.2
+          box_padding_angstrom: 0.0
+        - name: wider_box_more_search
+          exhaustiveness: 32
+          box_scale: 1.2
+          box_padding_angstrom: 2.0
   gnina_score_sanity:
     # GNINA score-only sanity check.
     run: true  # options: true, false

@@ -1,6 +1,5 @@
 # ScreenSift
 
-[![CI](https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening/actions/workflows/ci.yml/badge.svg)](https://github.com/eva-mitropoulou/mapk1-leakage-aware-screening/actions/workflows/ci.yml)
 
 <p align="center">
   <img src="docs/assets/screensift-logo.png" alt="ScreenSift logo" width="220">
@@ -10,29 +9,27 @@
 triage pipeline that turns a raw ligand table into a transparent, ranked
 candidate shortlist — packaged as a tested, pip-installable Python API.
 
-I ran it on the full LIT-PCBA **MAPK1** benchmark end to end:
+I ran it on the LIT-PCBA **MAPK1** benchmark end to end using two validated
+MAPK1 receptor setups, **4QTA** and **6SLG**:
 
 - **61,971** ligands curated (RDKit canonicalization, InChIKey dedup, activity conflict quarantine)
-- docked across a **5-receptor holo ensemble** — **309,230** Uni-Dock jobs
-- **GNINA** CNN rescoring on **60,960** ligands (Docker/GPU)
-- native-ligand **redocking** and score-only **rescoring** validation
-- triaged to a transparent **top-100** shortlist with per-candidate evidence buckets
+- two receptor/box setups validated by native-ligand redocking
+- **51,507** ligand score rows from the 4QTA/6SLG docking and GNINA rescoring set
+- saved **ECFP4/Tanimoto similarity** for all 51,507 ligand rows
+- triaged to a transparent **top-100** shortlist with 0.75 similarity / 0.25 structure weighting
 
 ...then packaged the whole thing behind one function, `find_candidates(...)`, and a
-config-driven CLI, with **114 passing tests** and CI.
+config-driven CLI, with **122 passing tests** and CI.
 
 > ScreenSift ranks and *explains* candidates from heterogeneous evidence
-> (chemical similarity + docking/rescoring). It does **not** claim experimental
-> activity — it produces a structured shortlist with explicit, per-channel
-> evidence. See [Scope](#scope) and [Limitations](#limitations).
-
+> (chemical similarity + docking/rescoring). 
 ## Quickstart
 
 ```bash
-pip install -e .                     # core find_candidates API (no PYTHONPATH tricks)
+pip install -e .                     # core find_candidates API 
 pip install -e ".[workflow]"         # + docking/prep tools for the full pipeline
 
-# Rank the shipped MAPK1 example table in seconds:
+# Rank the shipped MAPK1 example table:
 python example/mapk1/run_example.py
 # or via the installed CLI / config-driven orchestrator:
 screensift-run-pipeline --config example/mapk1/pipeline.yml
@@ -43,16 +40,20 @@ from screensift import find_candidates
 
 candidates = find_candidates(
     schema="example/mapk1/schema.yml",
-    data="example/mapk1/mapk1_phase1_score_population.csv",
+    data="example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv",
     target="MAPK1",
     evidence_mode="combined",
+    similarity_score_column="ecfp4_active_similarity",
+    candidate_aggregation="weighted_mean",
+    candidate_weights={
+        "similarity_score_norm": 0.75,
+        "structure_score_norm": 0.25,
+    },
     n_candidates=100,
 )
 ```
 
-## Overview
 
-`ScreenSift` turns a ligand table into a ranked candidate table. In the full workflow, the user provides a dataset, a schema that explains the dataset columns, and a target with prepared receptor inputs. The package standardizes the molecules, prepares ligands, supports Uni-Dock/GNINA score generation, computes ligand-similarity evidence, normalizes the evidence channels, assigns interpretable support buckets, and returns the top candidates.
 
 ## Scientific Aim
 
@@ -62,11 +63,9 @@ Virtual-screening projects often combine heterogeneous evidence: chemical simila
 
 > Given a ligand dataset and available prioritization signals, which compounds should be carried forward, and why?
 
-The output is not a claim of experimental activity. It is a structured shortlist with explicit evidence channels.
+Similarity and structure scores are treated as separate evidence used to explain why a ligand was prioritized. The output is not a claim of experimental activity. It is a structured shortlist with explicit evidence channels.
 
-## Scope
 
-`ScreenSift` is a candidate triage tool. It is not intended to benchmark docking or rescoring methods against ligand similarity baselines, and it does not claim that one score type is scientifically superior to another. Similarity and structure scores are treated as separate evidence channels used to explain why a ligand was prioritized.
 
 ## Main Workflow
 
@@ -75,6 +74,7 @@ The intended end-to-end path is:
 ```text
 dataset + schema + target
   -> molecular audit and canonical ligand table
+  -> native-ligand redocking validation
   -> ligand 3D/PDBQT preparation
   -> receptor/box-driven Uni-Dock screening
   -> optional GNINA rescoring
@@ -99,7 +99,7 @@ ranking:
   evidence_mode: combined  # similarity, structure, or combined
 ```
 
-`workflow.mode` controls how much work the pipeline runs. `ranking_only` reads an existing scored table and writes one candidate CSV. `full_screening` runs ligand preparation, Uni-Dock, GNINA rescoring, validation, and final ranking.
+`workflow.mode` controls how much work the pipeline runs. `ranking_only` reads an existing scored table and writes one candidate CSV. `full_screening` runs native redocking validation, ligand preparation, Uni-Dock, GNINA rescoring, validation checks, and final ranking. Redocking-based receptor filtering is optional and must be enabled explicitly.
 
 `ranking.evidence_mode` controls how candidates are ranked:
 
@@ -108,8 +108,6 @@ ranking:
 | `similarity` | rank only by ligand-similarity evidence |
 | `structure` | rank only by docking/rescoring evidence |
 | `combined` | rank by both evidence channels |
-
-The internal stage named `rank_candidates` is not a fourth ranking mode. It is simply the pipeline step that writes the final candidate table.
 
 Use dry-run mode to inspect the planned work without executing external tools:
 
@@ -124,29 +122,35 @@ from screensift import find_candidates
 
 candidates = find_candidates(
     schema="configs/my_dataset_schema.yml",
-    data="example/mapk1/mapk1_phase1_score_population.csv",
+    data="example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv",
     target="MY_TARGET",
     evidence_mode="combined",
     structure_aggregation="max",
-    candidate_aggregation="max",
+    candidate_aggregation="weighted_mean",
+    candidate_weights={
+        "similarity_score_norm": 0.75,
+        "structure_score_norm": 0.25,
+    },
     structure_score_cutoff=0.70,
     similarity_score_cutoff=0.70,
     n_candidates=100,
 )
 ```
 
-If a similarity column is not supplied, `ScreenSift` computes ECFP4/Tanimoto similarity to known actives when active labels are available. Standard Uni-Dock/GNINA score columns are auto-detected with their known score direction. For custom external score columns, the user supplies whether higher or lower values are better.
+If the user does not provide a similarity score column, ScreenSift computes ECFP4/Tanimoto similarity to known actives when active labels are available. If the user does not provide docking or rescoring score columns, the full pipeline can generate them by running Uni-Dock docking and GNINA rescoring. Standard Uni-Dock/GNINA score columns are then auto-detected with their known score direction; for custom external score columns, the user supplies whether higher or lower values are better.
 
 The same operation is available from the command line:
 
 ```bash
 screensift \
   --schema configs/my_dataset_schema.yml \
-  --data example/mapk1/mapk1_phase1_score_population.csv \
+  --data example/mapk1/expected_outputs/mapk1_2receptor_score_population.csv \
   --target MY_TARGET \
   --evidence-mode combined \
   --structure-aggregation max \
-  --candidate-aggregation max \
+  --candidate-aggregation weighted_mean \
+  --candidate-weight similarity_score_norm:0.75 \
+  --candidate-weight structure_score_norm:0.25 \
   --similarity-cutoff 0.70 \
   --structure-cutoff 0.70 \
   --n-candidates 100 \
@@ -227,7 +231,7 @@ The canonical internal fields are:
 
 Valid rows are deduplicated by `inchikey` by default. If the same molecular identity appears with conflicting active/inactive labels, the conflicting records are moved to the failure table instead of being silently kept.
 
-This matters scientifically because duplicated or contradictory molecules can inflate apparent candidate quality or make the shortlist unstable.
+
 
 ### 4. Ligand Similarity Evidence
 
@@ -253,7 +257,7 @@ In the full workflow, structure-score evidence is generated before final candida
 
 The final candidate-selection API is scoring-method agnostic. Uni-Dock and GNINA scores are supported by the workflow, but any numeric score column can be used for triage.
 
-For standard Uni-Dock/GNINA columns, the user does not need to say whether higher or lower is better. If no structure-score mapping is provided, the API auto-detects common column names such as:
+For standard Uni-Dock/GNINA columns, the user does not need to say whether higher or lower is better. If the user does not specify which structure-score columns to use, ScreenSift automatically looks for common Uni-Dock and GNINA column names and applies the correct score direction for each one:
 
 - `unidock_best_score`, `best_score`, `unidock_score`, `score`;
 - `CNNscore`, `cnnscore`, `gnina_cnnscore`;
@@ -271,23 +275,11 @@ structure_score_columns={
 
 ### 6. Score Normalization
 
-Raw scores may have different directions and units. Docking scores are often better when lower; classifier-like scores are often better when higher.
+Raw evidence scores are not compared directly. ScreenSift first handles the direction of each score, then rescales each score column independently to a 0-1 range.
 
-`ScreenSift` does not blindly compare raw GNINA, Uni-Dock, and Tanimoto values. Structure-score columns are normalized independently with their auto-detected or user-declared score direction. Computed Tanimoto similarity is already bounded from 0 to 1, and supplied similarity columns are normalized as higher-is-better evidence.
+For example, lower Uni-Dock or GNINA affinity values are treated as better, while higher GNINA CNN scores are treated as better. Computed Tanimoto similarity is already between 0 and 1; supplied similarity columns are also treated as higher-is-better and normalized.
 
-For a score where higher is better:
-
-```text
-normalized = (value - min) / (max - min)
-```
-
-For a score where lower is better:
-
-```text
-normalized = (max - value) / (max - min)
-```
-
-By default, the best normalized structure score across the selected structure-score columns becomes `structure_score_norm`. The contributing column is stored in `primary_structure_score`.
+After normalizing the structure-based scores (Uni-Dock score, GNINA CNNscore, GNINA CNNaffinity, and GNINA affinity), ScreenSift creates one overall structure evidence score per ligand: `structure_score_norm`. By default, this is the best normalized structure-based score for that ligand; the source column is recorded in `primary_structure_score`.
 
 Users can also request weighted structure aggregation:
 
@@ -315,7 +307,7 @@ structure_score_cutoff=0.70
 similarity_score_cutoff=0.70
 ```
 
-The similarity cutoff is a policy choice, not a universal rule. A high value such as `0.70` favors analog-like candidates that resemble known actives. Users should tune `similarity_score_cutoff` and `structure_score_cutoff` based on the intended triage policy.
+The similarity cutoff is a policy choice. A high value such as `0.70` favors analog-like candidates that resemble known actives. Users should tune `similarity_score_cutoff` and `structure_score_cutoff` based on the intended triage policy.
 
 The evidence bucket is assigned as:
 
@@ -326,7 +318,7 @@ The evidence bucket is assigned as:
 | structure passes, similarity does not pass | `structure_supported` |
 | neither passes | `deprioritized` |
 
-This is deliberately not a quota system. The user requests `n_candidates`, and `ScreenSift` returns the top `n_candidates` rows by the unified ranking score. Evidence buckets explain why each returned row ranked; they do not reserve slots for similarity-supported or structure-supported candidates.
+The user requests `n_candidates`, and `ScreenSift` returns the top `n_candidates` rows by the unified ranking score. Evidence buckets explain why each returned row ranked, they do not reserve slots for similarity-supported or structure-supported candidates.
 
 ### 8. Candidate Ranking
 
@@ -407,11 +399,14 @@ The review stage creates richer candidate-triage reports when pose-inspection ta
 
 ### Validation Strategy
 
-For the Uni-Dock + GNINA workflow, the recommended validation path is:
+The standard validation path for the Uni-Dock + GNINA workflow is:
 
-1. Uni-Dock native-ligand redocking validates the receptor boxes and main docking setup.
-2. GNINA score-only validation evaluates native, redocked, and displaced decoy poses to sanity-check the rescoring signal.
-3. Optional candidate pose QC redocks selected candidates with GNINA and compares Uni-Dock-vs-GNINA predicted poses. This is a pose-agreement check, not experimental RMSD.
+1. Uni-Dock native-ligand redocking validates the receptor boxes and main docking setup before large ligand docking.
+2. Optional native-redocking auto-tuning can try user-defined box/exhaustiveness attempts before giving up on a receptor. ScreenSift never invents these combinations; the user lists them in `redocking.native.auto_tune.attempts`.
+3. By default, redocking is report-only: it tells the user which receptor setups passed or failed, but keeps all complete receptors for screening.
+4. If `redocking.native.filter_receptors: true`, ScreenSift writes a redocking-passed docking-box table and screens only receptor setups that passed the configured RMSD threshold after the configured attempts.
+5. GNINA score-only validation evaluates native, redocked, and displaced decoy poses to sanity-check the rescoring signal.
+6. Optional candidate pose QC redocks selected candidates with GNINA and compares Uni-Dock-vs-GNINA predicted poses. This is a pose-agreement check, not experimental RMSD.
 
 This keeps the roles clear: Uni-Dock is the high-throughput docking engine, GNINA is a rescoring and optional second-pose engine, and ScreenSift ranks normalized evidence channels.
 
@@ -420,54 +415,79 @@ The full workflow path is:
 ```text
 schema + ligand table
   -> curated ligands
-  -> ligand/receptor preparation
-  -> Uni-Dock docking
   -> Uni-Dock native redocking validation
+  -> optional user-defined redocking auto-tune attempts
+  -> optional receptor filtering from redocking pass/fail
+  -> ligand preparation
+  -> Uni-Dock docking
   -> GNINA score-only rescoring and rescoring sanity checks
   -> find_candidates(...)
   -> candidate table
 ```
 
-## Tests And Validation
+Native redocking auto-tuning is configured explicitly:
 
-The test suite checks both the public package API and lower-level workflow pieces, including schema adaptation, split generation, docking input construction, score parsing, candidate ranking, and triage behavior.
-
-Run:
-
-```bash
-python -m pytest tests/
+```yaml
+redocking:
+  native:
+    run: true
+    filter_receptors: true
+    rmsd_threshold_angstrom: 2.0
+    auto_tune:
+      enabled: true
+      attempts:
+        - name: baseline
+          exhaustiveness: 8
+          box_scale: 1.0
+          box_padding_angstrom: 0.0
+        - name: wider_box
+          exhaustiveness: 16
+          box_scale: 1.2
+          box_padding_angstrom: 0.0
+        - name: wider_box_more_search
+          exhaustiveness: 32
+          box_scale: 1.2
+          box_padding_angstrom: 2.0
 ```
 
-Current local result: 114 tests passed, with 2 upstream MDAnalysis/numpy warnings.
+For each receptor, ScreenSift tries those attempts in order and stops at the
+first attempt that passes the RMSD threshold. Failed receptors remain visible in
+the redocking report. The final one-row-per-receptor status is written to
+`*_native_redocking.csv`, and every attempted combination is written to
+`*_native_redocking_attempts.csv`. If filtering is enabled and no receptor
+passes, the pipeline stops instead of screening against an invalid receptor set.
 
-The current workflow has also been run end to end on the LIT-PCBA `MAPK1` target. That run produced:
+## Tests And Validation
+
+Run the package tests with:
+
+```bash
+PYTHONPATH=src python -m pytest tests/
+```
+
+Current local result: 122 tests passed, with 2 upstream MDAnalysis/numpy warnings.
+
+The current example workflow has also been run on the LIT-PCBA `MAPK1` target
+using the two validated receptor setups, `4QTA` and `6SLG`. That run produced:
 
 | stage | result |
 | --- | --- |
 | dataset audit | 61,971 curated ligands: 302 active and 61,669 inactive |
 | screening set | full curated LIT-PCBA MAPK1 set: 61,971 ligands |
-| ligand 3D generation | 61,846 successful structures, 125 timed-out conformer failures |
-| ligand PDBQT preparation | 61,846 successful PDBQT files, 0 conversion failures |
-| receptor preparation | 5 MAPK1 receptors prepared: 4QTA, 4ZZN, 5WP1, 6SLG, and 8AOJ |
-| Uni-Dock screening | 309,230 receptor-ligand docking jobs completed |
-| Uni-Dock best-per-ligand table | 60,960 ligands with at least one valid docked pose |
-| native redocking validation | 5/5 native redocking jobs completed; 2/5 passed the 2.0 A RMSD threshold (symmetry-aware, receptor-frame RMSD) |
-| GNINA rescoring | 60,960 ligands submitted with Docker/GPU GNINA; 60,856 complete and 104 failed |
-| GNINA rescoring validation | 15/15 native, redocked, and displaced-decoy score-only checks completed |
-| `find_candidates(...)` validation | top 100 candidates written by the ranking API: 2 known actives and 98 known inactives in this retrospective benchmark |
-| candidate pose QC | top 25 candidates redocked with GNINA; 25/25 docking jobs completed, 24 comparable RMSDs, and 1 atom-count mismatch |
+| receptor setup | two MAPK1 receptors used: 4QTA and 6SLG |
+| score population | 51,507 ligand rows from existing 4QTA/6SLG docking and GNINA rescoring outputs |
+| similarity evidence | ECFP4/Tanimoto similarity to known actives saved for all 51,507 ligand rows as `ecfp4_active_similarity` |
+| complete score rows | 51,430 complete rows and 77 failed rows |
+| score population labels | 262 known actives and 51,245 known inactives |
+| ranking policy | `combined` evidence with `similarity_score_norm: 0.75` and `structure_score_norm: 0.25` |
+| `find_candidates(...)` output | top 100 candidates: 6 known actives and 94 known inactives |
 
-Candidate pose QC is an agreement check between predicted Uni-Dock and GNINA poses. In this run, the 24 comparable candidates had a median Uni-Dock-vs-GNINA RMSD of 2.74 A (symmetry-aware, receptor-frame): 11 consistent poses, 5 moderate shifts, and 8 discordant poses.
+The 6/100 active count is the retrospective label composition of this ranked
+shortlist. It is not presented as a prospective hit rate or a claim of new MAPK1
+inhibitors. The example intentionally ranks one final candidate table from the
+available similarity, Uni-Dock, and GNINA evidence.
 
-The `find_candidates(...)` validation used the full MAPK1 scored ligand table with auto-detected Uni-Dock/GNINA score directions. The output is a ranked triage table, not a claim of new MAPK1 inhibitors.
 
-## Reference Outputs
-
-Small known-good artifacts from the full MAPK1 run are committed under
-[](example/mapk1/expected_outputs/) (final
-candidate shortlist, native-redocking and pose-QC tables, and per-stage QC
-reports) so you can compare your own run against a reference. The multi-GB
-pose/score dumps are regenerable and are not committed.
 
 ## MAPK1 Example
 
